@@ -1,0 +1,54 @@
+# Active configuration for the simplified three-agent FinMemory experiment.
+
+global:
+  model_name: "gpt-4o"
+  training_temperature: 0.7
+  evaluation_temperature: 0.3
+  retry_attempts: 3
+
+active_agents:
+  market_context_agent:
+    purpose: "Summarize current signals, technical indicators, and memory"
+    max_tokens: 700
+  direction_agent:
+    purpose: "Select buy, sell, or hold"
+    valid_decisions: ["buy", "sell", "hold"]
+  quantity_risk_agent:
+    purpose: "Size the simulated order under hard risk constraints"
+    enforce_cvar_constraint: true
+    enforce_cash_constraint: true
+
+deterministic_preprocessing:
+  company_news_importance: 5
+  ticker_mention_importance: 7
+  macro_news_importance: 3
+  ten_k_importance: 8
+  ten_q_importance: 6
+
+memory_system:
+  shallow_capacity: 10
+  intermediate_capacity: 30
+  deep_capacity: 100
+  reflection_capacity: 50
+  shallow_threshold: 4
+  intermediate_threshold: 7
+
+risk_management:
+  cvar_calculator:
+    confidence_level: 0.95
+    window_size: 20
+    min_samples: 5
+  position_sizer:
+    max_exposure_ratio: 0.1
+  exposure_tracker:
+    max_exposure_ratio: 0.9
+    max_single_position_ratio: 0.3
+    concentration_threshold: 0.25
+
+api_limits:
+  openai:
+    calls_per_minute: 60
+  finnhub:
+    calls_per_minute: 60
+  sec_edgar:
+    calls_per_second: 10

@@ -1,0 +1,222 @@
+# FinMemory Trading Environment Configuration
+# Section 3.1 (Task Definition), Section 3.2 (Position-Aware Return)
+
+environment:
+  # Core trading environment settings
+  ticker: "TSLA"  # Default ticker (overridden in experiments)
+  initial_capital: 100000  # Starting capital in USD (Section 5)
+  transaction_cost: 0.001  # 0.1% per trade (realistic brokerage fee)
+  
+  # Trading constraints
+  allow_short_selling: false  # No short selling (Section 3.1)
+  max_position_ratio: 0.1  # Maximum 10% of capital in single position
+  
+  # Time settings
+  trading_days_per_year: 252  # Standard US market days
+  risk_free_rate: 0.02  # 2% annual risk-free rate (for Sharpe calculation)
+
+# Position-Aware Return Configuration (Eq. 2)
+position_aware_return:
+  # Formula: R_t = position_t × log(price[t+1] / price[t])
+  use_log_returns: true
+  track_cumulative: true
+  
+  # Account value calculation
+  # V_t = V_0 × exp(Σ R_t)
+  track_account_value: true
+
+# Multi-Timescale Reward Configuration (Section 4.3, Eq. 3-5)
+multi_timescale_reward:
+  enabled: true  # Training-only signal
+  
+  # Timescale windows (in days)
+  short_window: 1    # Ms_t = price[t+1] - price[t]
+  mid_window: 7      # Mm_t = price[t+7] - price[t]
+  long_window: 30    # Ml_t = price[t+30] - price[t]
+  
+  # Combined signal: M_t = Ms_t + Mm_t + Ml_t
+  combine_method: "sum"  # Options: sum, weighted_sum
+  
+  # Reward formula
+  # If position_t == position_{t-1}: reward = -(M_t)²
+  # Else: reward = position_t × M_t
+  inaction_penalty_scale: 1.0
+  
+  # Boundary handling
+  handle_boundaries: "truncate"  # Options: truncate, extrapolate, zero
+
+# Risk Management Configuration (Section 4.2.2, Appendix B.2)
+risk_management:
+  # CVaR Configuration (95% confidence, 20-day window)
+  cvar:
+    confidence_level: 0.95  # 95% confidence (α=0.95)
+    window_size: 20  # Rolling window of 20 days
+    min_samples: 5  # Minimum samples for valid CVaR
+    
+  # Position Sizing
+  position_sizer:
+    max_exposure_ratio: 0.1  # Maximum 10% loss tolerance
+    round_down: true  # Round down position sizes for safety
+    enforce_integer: true  # Integer share quantities
+    
+  # Exposure Tracking
+  exposure_tracker:
+    max_total_exposure: 0.9  # Maximum 90% of capital invested
+    max_single_position: 0.3  # Maximum 30% in single asset
+    concentration_threshold: 0.25  # HHI threshold for alerts
+    alert_on_breach: true
+
+# Memory System Configuration (Section 4.1, Figure 2)
+memory_system:
+  # Layer capacities
+  shallow_capacity: 10    # Recent, low-importance (score 1-4)
+  intermediate_capacity: 30  # Medium-importance (score 5-7)
+  deep_capacity: 100      # High-importance, long-term (score 8-10)
+  reflection_capacity: 50  # Experiential learnings
+  
+  # Importance thresholds
+  shallow_threshold: 4    # Score <= 4 → shallow
+  intermediate_threshold: 7  # Score 5-7 → intermediate
+  # Score >= 8 → deep
+  
+  # Reflection settings
+  reflection:
+    enabled: true
+    positive_threshold: 5.0  # P&L > 5% triggers positive reflection
+    negative_threshold: -5.0  # P&L < -5% triggers negative reflection
+    reinforcement_positive: 2  # Reinforce memory indices by +2 for wins
+    reinforcement_negative: -1  # Reinforce memory indices by -1 for losses
+
+# Data Configuration
+data:
+  # Date ranges (Section 5 - Experiments)
+  training_period:
+    start: "2024-01-01"
+    end: "2025-02-28"
+    
+  evaluation_period:
+    start: "2025-03-01"
+    end: "2025-09-30"
+  
+  # Data sources
+  price_source: "yahoo"  # yfinance for OHLCV data
+  news_source: "finnhub"  # Finnhub API for company/macro news
+  sec_source: "edgar"  # SEC EDGAR API for 10-K/10-Q filings
+  
+  # Caching
+  cache_enabled: true
+  cache_dir: "data/cache"
+  cache_ttl: 86400  # 24 hours in seconds
+
+# Experiment Configuration (Section 5)
+experiments:
+  # Stocks for evaluation (Table 1)
+  stocks:
+    - "TSLA"
+    - "AAPL"
+    - "AMZN"
+    - "NFLX"
+    - "COIN"
+  
+  # Baselines to compare (10 total)
+  baselines:
+    # LLM-Based Agents
+    - "FinGPT"
+    - "FINMEM"
+    - "FinAgent"
+    - "FINCON"
+    # Deep Reinforcement Learning
+    - "A2C"
+    - "PPO"
+    - "DQN"
+    # Rule-Based Strategies
+    - "MACD"
+    - "RSI"
+    - "Random"
+  
+  # Evaluation metrics (Section 5, Appendix B.1-B.3)
+  metrics:
+    - "cumulative_return"  # CR%
+    - "sharpe_ratio"  # SR
+    - "max_drawdown"  # MDD%
+    - "calmar_ratio"  # Calmar
+    - "cvar_95"  # CVaR (95%)
+    - "var_95"  # VaR (95%)
+    - "annualized_return"
+    - "volatility"
+    - "win_rate"
+    - "profit_factor"
+  
+  # Ablation study configurations (Table 2)
+  ablation_study:
+    enabled: true
+    configurations:
+      - name: "Full FinMemory"
+        remove_mtr: false
+        remove_qra: false
+        remove_msp: false
+      - name: "w/o MTR"
+        remove_mtr: true  # Remove Multi-Timescale Reward
+        remove_qra: false
+        remove_msp: false
+      - name: "w/o QRA"
+        remove_mtr: false
+        remove_qra: true  # Remove Quantity/Risk Agent
+        remove_msp: false
+      - name: "w/o MSP"
+        remove_mtr: false
+        remove_qra: false
+        remove_msp: true  # Remove Market Signal Processing
+  
+  # Sensitivity analysis (Figure 3)
+  sensitivity_analysis:
+    enabled: true
+    timescale_combinations:
+      - [1]  # 1-day only
+      - [7]  # 7-day only
+      - [30]  # 30-day only
+      - [1, 7]  # 1+7 day
+      - [1, 30]  # 1+30 day
+      - [7, 30]  # 7+30 day
+      - [1, 7, 30]  # Full combination
+    cvar_confidence_levels:
+      - 0.90
+      - 0.95
+      - 0.99
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  console_output: true
+  file_output: true
+  log_dir: "logs"
+  max_log_size: 52428800  # 50MB
+  backup_count: 5
+  
+  # What to log
+  log_trades: true
+  log_agent_calls: true
+  log_memory_operations: true
+  log_risk_metrics: true
+  log_api_costs: true
+
+# API Configuration
+api:
+  # OpenAI (GPT-4o)
+  openai:
+    model: "gpt-4o"
+    temperature_training: 0.7  # Exploration during training
+    temperature_evaluation: 0.3  # Consistency during evaluation
+    max_tokens: 2000
+    retry_attempts: 3
+    retry_delay: 1.0  # seconds
+    
+  # Finnhub
+  finnhub:
+    rate_limit_per_minute: 60
+    rate_limit_per_month: 30000
+    
+  # SEC EDGAR
+  sec:
+    user_agent: "FinMemory Research Agent"
+    rate_limit_delay: 0.2  # seconds between requests
